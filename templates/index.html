@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Remover</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center relative">
+    <!-- Background Image with Blur -->
+    <div class="absolute inset-0 z-0 bg-cover bg-center backdrop-blur-md" style="background-image: url('{{ url_for('static', filename='bg.jpg') }}'); background-attachment: fixed;"></div>
+
+    <!-- Main Content -->
+    <div class="max-w-2xl mx-auto p-8 relative z-10">
+        <div class="bg-white rounded-lg shadow-lg p-6 space-y-6 text-center">
+            <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Image Background Remover</h1>
+            
+            <div class="flex justify-center space-x-4">
+                <label class="w-64 flex flex-col items-center px-4 py-6 bg-white rounded-lg shadow-lg tracking-wide border border-blue-500 cursor-pointer hover:bg-blue-500 hover:text-white transition-colors">
+                    <svg class="w-8 h-8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
+                    </svg>
+                    <span class="mt-2 text-sm">Select an image</span>
+                    <input type="file" id="photo" accept="image/*" class="hidden">
+                </label>
+            </div>
+
+            <div class="flex justify-center space-x-4">
+                <button onclick="uploadPhoto()" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    Upload Photo
+                </button>
+                <button onclick="removeBackground()" class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                    Remove Background
+                </button>
+            </div>
+
+            <div id="result" class="mt-8 flex flex-col items-center space-y-4">
+                <!-- Processing animation and result image will be displayed here -->
+            </div>
+
+            <!-- Download button (hidden by default) -->
+            <div id="downloadContainer" class="hidden mt-4">
+                <button onclick="downloadImage()" class="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    <span>Download Image</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let processedImageBlob = null;
+
+        function uploadPhoto() {
+            const file = document.getElementById('photo').files[0];
+            if (!file) {
+                alert('Please select an image first');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('photo', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Upload failed');
+                alert('Upload successful');
+            })
+            .catch(error => alert('Error: ' + error.message));
+        }
+
+        function removeBackground() {
+            document.getElementById('result').innerHTML = '<div class="spinner"></div>';
+            document.getElementById('downloadContainer').classList.add('hidden');
+
+            fetch('/remove_background', {
+                method: 'POST'
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                processedImageBlob = blob; // Store the blob for later download
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(blob);
+                img.className = 'max-w-full h-auto rounded-lg shadow-lg transition-all duration-500';
+                document.getElementById('result').innerHTML = '';
+                document.getElementById('result').appendChild(img);
+                
+                // Show download button
+                document.getElementById('downloadContainer').classList.remove('hidden');
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            });
+        }
+
+        function downloadImage() {
+            if (!processedImageBlob) {
+                alert('No processed image available');
+                return;
+            }
+
+            const url = URL.createObjectURL(processedImageBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'removed-background.png'; // Set the download filename
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
